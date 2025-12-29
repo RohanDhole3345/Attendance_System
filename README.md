@@ -5,6 +5,6 @@ The Location Based Attendance System is a web-based application designed to prev
 It allows attendance to be marked only when a user is physically present inside a predefined classroom location.
 
 The system uses:
-- GPS-based location verification
+- GPS-based location verification with Selfi Verification
 - Admin-controlled classroom boundary setup
 - Secure user and admin login system

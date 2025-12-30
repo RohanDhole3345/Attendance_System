@@ -2,8 +2,8 @@ from deepface import DeepFace
 import os
 
 #Absolute paths to images
-img1 = r"C:\Users\ASUS\OneDrive\Desktop\Python 2025\Project\testimages\user1_1.jpg"
-img2 = r"C:\Users\ASUS\OneDrive\Desktop\Python 2025\Project\testimages\user1_2.jpg"
+img1 = r"C:\PyAttendance_Project\testimages\user1.jpg"
+img2 = r"C:\PyAttendance_Project\testimages\user2.jpg"
 
 #Check if images exist
 print("Image 1 exists:", os.path.exists(img1))

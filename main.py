@@ -32,7 +32,7 @@ class ClassroomLocation(BaseModel):
 class StudentLocation(BaseModel):
     student_id: int
     latitude: float
-    longitude: float
+    longitude: float #capicitor
 
 # ---------------------------
 # Haversine Distance Formula
@@ -51,3 +51,16 @@ def haversine(lat1, lon1, lat2, lon2):
 
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
+
+# ---------------------------
+# Admin API – Set Classroom Location
+@app.post("/set-classroom-location")
+def set_classroom_location(data: ClassroomLocation):
+    classroom_location["lat"] = data.latitude
+    classroom_location["lon"] = data.longitude
+    classroom_location["radius"] = data.radius
+
+    return {
+        "message": "Classroom location set successfully",
+        "classroom_location": classroom_location
+    }

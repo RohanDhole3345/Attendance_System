@@ -1,0 +1,15 @@
+Date: 1 Jan 2026
+
+Tasks Completed:
+- Worked on Distance Formula And Setting ClassRoom Loaction also Used Vercel And StreamLit For Cloud
+- Fixed bug From Distance Formula
+
+In Progress:
+- Setting ClasRoom Location
+
+Plan for Tomorrow:
+- Continue feature Of Setting ClasRoom Location
+
+GitHub Link:
+- 
+

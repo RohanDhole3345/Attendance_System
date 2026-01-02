@@ -1,0 +1,16 @@
+Date: 2 Jan 2026
+
+Tasks Completed:
+- Student API – Mark Attendance
+- Distance check
+- Logic Of Mark Attendance Once per Hour  
+
+In Progress:
+- One attendance per hour logic
+
+Plan for Monaday:
+- Continue On BackEnd(Some Part is Remeaning Also Corrections) 
+
+GitHub Link:
+- https://github.com/RohanDhole3345/Attendance_System.git
+

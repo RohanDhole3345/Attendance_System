@@ -65,7 +65,7 @@ def set_classroom_location(data: ClassroomLocation):
     }
 
 # ---------------------------
-# Student API–Mark Attendance(Once per Hour)
+# Student API–Mark Attendance(Once per Hour Only)
 @app.post("/mark-attendance")
 def mark_attendance(data: StudentLocation):
 

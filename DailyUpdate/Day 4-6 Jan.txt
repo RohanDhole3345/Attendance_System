@@ -1,0 +1,17 @@
+Date: 6 Jan 2026
+
+Tasks Completed:
+- Student API – Mark Attendance
+- Distance check
+- Logic Of Mark Attendance Once per Hour Only 
+- Everthing Working Properly
+
+In Progress:
+- Tomorrow i Will Start Work Related DataBase(MySQL) 
+
+Plan for Monaday:
+-Froted and css and script for location
+
+GitHub Link:
+- https://github.com/RohanDhole3345/Attendance_System.git
+

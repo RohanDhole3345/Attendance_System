@@ -1,113 +1,143 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-import math
+import os
+import shutil
 from datetime import datetime, timedelta
+from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException
+from sqlalchemy.orm import Session
+from deepface import DeepFace
 
-app = FastAPI(title="Location Based Attendance Backend")
+# Import your database connection and models
+from database import SessionLocal, engine, Base, Student, AttendanceLog, ClassroomSetting, get_db
 
-# ---------------------------
-# Root API
-@app.get("/")
-def root():
-    return {"message": "Location Based Attendance Backend Running"}
+# Initialize Database Tables
+Base.metadata.create_all(bind=engine)
 
-# ---------------------------
-# In-memory storage (DB later)
-# ---------------------------
-classroom_location = {
-    "lat": None,
-    "lon": None,
-    "radius": None
-}
-
-attendance_records = []
+app = FastAPI(title="Pro-Grade Face & GPS Attendance System")
 
 # ---------------------------
-# Request Models
-class ClassroomLocation(BaseModel):
-    latitude: float
-    longitude: float
-    radius: float   # meters
+# Directory Setup (Windows Robust)
+# ---------------------------
+REFERENCE_DIR = "uploads/references"
+TEMP_DIR = "uploads/temp"
 
-class StudentLocation(BaseModel):
-    student_id: int
-    latitude: float
-    longitude: float
+for path in [REFERENCE_DIR, TEMP_DIR]:
+    if not os.path.exists(path):
+        os.makedirs(path, exist_ok=True)
 
 # ---------------------------
-# Haversine Distance Formula-
-def haversine(lat1, lon1, lat2, lon2):
-    R = 6371000  # Earth radius in meters
+# Teacher API
+# ---------------------------
 
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
+@app.post("/teacher/set-rectangle")
+def set_rectangle(max_lat: float, min_lat: float, max_lon: float, min_lon: float, db: Session = Depends(get_db)):
+    setting = db.query(ClassroomSetting).filter(ClassroomSetting.id == 1).first()
+    if not setting:
+        setting = ClassroomSetting(id=1)
+        db.add(setting)
+    
+    setting.max_lat = max_lat
+    setting.min_lat = min_lat
+    setting.max_lon = max_lon
+    setting.min_lon = min_lon
+    
+    db.commit()
+    return {"message": "Classroom rectangle saved to Database", "rectangle": [max_lat, min_lat, max_lon, min_lon]}
 
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lon2 - lon1)
-
-    a = math.sin(dphi / 2) ** 2 + \
-        math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
-
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return R * c
+@app.get("/teacher/view-attendance")
+def view_attendance(db: Session = Depends(get_db)):
+    return db.query(AttendanceLog).all()
 
 # ---------------------------
-# Admin API – Set Classroom Location
-@app.post("/set-classroom-location")
-def set_classroom_location(data: ClassroomLocation):
-    classroom_location["lat"] = data.latitude
-    classroom_location["lon"] = data.longitude
-    classroom_location["radius"] = data.radius
-
-    return {
-        "message": "Classroom location set successfully",
-        "classroom_location": classroom_location
-    }
-
+# Student API – Mark Attendance
 # ---------------------------
-# Student API–Mark Attendance(Once per Hour Only)
-@app.post("/mark-attendance")
-def mark_attendance(data: StudentLocation):
 
-    if classroom_location["lat"] is None:
-        return {"error": "Classroom location not set by admin"}
+@app.post("/student/mark-attendance")
+async def mark_attendance(
+    student_id: str = Form(...), 
+    latitude: float = Form(...), 
+    longitude: float = Form(...),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    # 1. Fetch Classroom boundaries from DB
+    rect = db.query(ClassroomSetting).filter(ClassroomSetting.id == 1).first()
+    if not rect or rect.min_lat is None:
+        return {"attendance": "Error", "reason": "Classroom rectangle not set by teacher"}
 
-    # Distance check
-    distance = haversine(
-        data.latitude,
-        data.longitude,
-        classroom_location["lat"],
-        classroom_location["lon"]
-    )
+    # 2. GPS Validation
+    is_inside = (rect.min_lat <= latitude <= rect.max_lat and 
+                 rect.min_lon <= longitude <= rect.max_lon)
+    
+    if not is_inside:
+        return {"attendance": "Rejected", "reason": "Outside classroom boundary"}
 
-    if distance > classroom_location["radius"]:
-        return {
-            "attendance": "Rejected",
-            "reason": "Outside classroom",
-            "distance": round(distance, 2)
-        }
+    # 3. Check for Duplicate Attendance (Last 1 Hour)
+    last_hour = datetime.now() - timedelta(hours=1)
+    existing_record = db.query(AttendanceLog).filter(
+        AttendanceLog.student_id == student_id,
+        AttendanceLog.timestamp >= last_hour
+    ).first()
 
-    now = datetime.now()
+    if existing_record:
+        return {"attendance": "Rejected", "reason": "Already marked within the last hour"}
 
-    # One attendance per hr logic
-    for record in attendance_records:
-        if record["student_id"] == data.student_id:
-            if now - record["timestamp"] < timedelta(hours=1):
-                return {
-                    "attendance": "Rejected",
-                    "reason": "Attendance already marked within last hour"
-                }
+    # 4. Face Recognition Logic
+    db_student = db.query(Student).filter(Student.id == student_id).first()
+    ref_path = os.path.join(REFERENCE_DIR, f"{student_id}.jpg")
 
-    # Mark attendance
-    attendance_records.append({
-        "student_id": data.student_id,
-        "timestamp": now,
-        "status": "Present"
-    })
+    # --- CASE A: ENROLLMENT (First Time) ---
+    if not db_student:
+        # 1. Save the file
+        with open(ref_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # 2. Create the Student record ONLY
+        new_student = Student(
+            id=student_id, 
+            name=student_id, 
+            reference_image_path=ref_path
+        )
+        
+        try:
+            db.add(new_student)
+            db.commit() # <--- COMMIT 1: Save the student first!
+            db.refresh(new_student)
+            
+            # 3. NOW create the log (Foreign Key will now succeed)
+            new_log = AttendanceLog(student_id=student_id, status="Present (Enrolled)")
+            db.add(new_log)
+            db.commit() # <--- COMMIT 2: Save the attendance log
+            
+            return {"attendance": "Marked", "status": "Enrolled", "message": "Success"}
+        except Exception as e:
+            db.rollback()
+            return {"attendance": "Error", "reason": f"Database Error: {str(e)}"}
 
-    return {
-        "attendance": "Marked",
-        "status": "Present",
-        "distance": round(distance, 2),
-        "time": now.strftime("%Y-%m-%d %H:%M:%S")
-    }
+    # --- CASE B: VERIFICATION (Returning Student) ---
+    else:
+        temp_path = os.path.join(TEMP_DIR, f"{student_id}_temp.jpg")
+        with open(temp_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        try:
+            result = DeepFace.verify(
+                img1_path=str(db_student.reference_image_path), 
+                img2_path=temp_path, 
+                model_name="VGG-Face",
+                enforce_detection=False 
+            )
+            
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
+            if result["verified"]:
+                new_log = AttendanceLog(student_id=student_id, status="Present (Verified)")
+                db.add(new_log)
+                db.commit()
+                return {"attendance": "Marked", "status": "Present", "distance": result["distance"]}
+            else:
+                return {"attendance": "Rejected", "reason": "Face does not match reference"}
+
+        except Exception as e:
+            if os.path.exists(temp_path): os.remove(temp_path)
+            print(f"DeepFace Error: {e}")
+            return {"attendance": "Error", "reason": "Verification failed. Ensure your face is visible."}

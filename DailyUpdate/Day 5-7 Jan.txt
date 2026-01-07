@@ -11,7 +11,7 @@ Tasks Completed:
 In Progress:
 - Expect FroentEnd Everything is completed
 
-Plan for Monaday:
+Next Plan:
 - I will Complete the froentend of the project
 
 GitHub Link:

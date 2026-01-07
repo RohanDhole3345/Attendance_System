@@ -9,7 +9,7 @@ Tasks Completed:
 In Progress:
 - Tomorrow i Will Start Work Related DataBase(MySQL) 
 
-Plan for Monaday:
+Next Plan:
 -Froted and css and script for location
 
 GitHub Link:

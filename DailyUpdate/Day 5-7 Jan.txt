@@ -1,0 +1,19 @@
+Date: 7 Jan 2026
+
+Tasks Completed:
+- Student API – Mark Attendance
+- Distance check
+- Logic Of Mark Attendance Once per Hour Only 
+- Everthing Working Properly
+- Admin Panel is created newly 
+- Admin can able to view the attdeance
+
+In Progress:
+- Expect FroentEnd Everything is completed
+
+Plan for Monaday:
+- I will Complete the froentend of the project
+
+GitHub Link:
+- https://github.com/RohanDhole3345/Attendance_System.git
+

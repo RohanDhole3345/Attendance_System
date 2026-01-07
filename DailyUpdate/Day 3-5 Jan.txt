@@ -8,7 +8,7 @@ Tasks Completed:
 In Progress:
 - Everthing Working Properly,Also i have tested The OverAll Logic
 
-Plan for Monaday:
+Next Plan:
 - Tomorrow i Will Start Work Related DataBase(MySQL) 
 
 GitHub Link:

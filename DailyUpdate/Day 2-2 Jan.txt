@@ -8,7 +8,7 @@ Tasks Completed:
 In Progress:
 - One attendance per hour logic
 
-Plan for Monaday:
+Next Plan:
 - Continue On BackEnd(Some Part is Remeaning Also Corrections) 
 
 GitHub Link:

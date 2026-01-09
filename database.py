@@ -3,7 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import datetime
 
-# Database Connection (Ensure your password and DB name match your MySQL setup)
+# Database Connection (Ensure your password and DB name match your MySQL setups-)
 SQLALCHEMY_DATABASE_URL = "mysql+pymysql://root:Rohan%402004@localhost/attendance_system"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)

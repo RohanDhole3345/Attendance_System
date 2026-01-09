@@ -1,0 +1,29 @@
+Date: 8 Jan 2026
+
+Tasks Completed:
+- Student API – Mark Attendance
+- Distance check
+- Logic Of Mark Attendance Once per Hour Only 
+- Everthing Working Properly
+- Admin Panel is created newly 
+- Admin can able to view the attdeance
+- Security Functions Added like Master Key and forget passward Key
+- Added Forget passward option for both student and admin also
+- When teachers comes nneed to fill master key to avoid the fraud
+- Database also main and query also updates from upper changes
+
+--------Today--------
+- Worked on admin Panel
+- Also worked on forget passward features on both side
+- MySQL Schema is chnages (Admin Panel Added and passward entity added)
+- Capacitor Library Explored 
+
+In Progress:
+- Expect FroentEnd Everything is completed
+
+Next Plan:
+- I will Complete the froentend of the project
+
+GitHub Link:
+- https://github.com/RohanDhole3345/Attendance_System.git
+

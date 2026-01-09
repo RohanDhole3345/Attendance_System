@@ -5,7 +5,7 @@ from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException
 from sqlalchemy.orm import Session
 from deepface import DeepFace
 
-# Import your finalized database objects
+# Import your finalized database objectss
 from database import SessionLocal, engine, Base, Student, AttendanceLog, ClassroomSetting, Admin, get_db
 
 # Sync the database

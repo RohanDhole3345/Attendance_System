@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Boom Attendance - Student</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { overflow: hidden; touch-action: manipulation; }
+        #video, #capturedImage { transform: scaleX(-1); border-radius: 1rem; background: #000; width: 100%; height: 100%; object-fit: cover; }
+        #capturedImage { display: none; }
+        .progress-line { height: 4px; transition: width 0.5s ease; }
+    </style>
+</head>
+<body class="bg-gray-50 h-screen flex flex-col font-sans">
+
+    <nav class="bg-blue-600 p-3 text-white shadow-md flex justify-between items-center">
+        <span class="font-bold text-sm uppercase tracking-wider">Student Panel</span>
+        <div class="flex items-center space-x-3">
+            <span id="userNameDisp" class="text-[9px] bg-blue-700 px-2 py-1 rounded">ID: STU001</span>
+            <button onclick="logout()" class="text-[10px] text-white hover:text-red-200 font-bold border-l border-blue-400 pl-3">
+                <i class="fas fa-sign-out-alt"></i> LOGOUT
+            </button>
+        </div>
+    </nav>
+
+    <div class="px-8 py-4 bg-white border-b">
+        <div class="relative flex justify-between items-center max-w-xs mx-auto">
+            <div class="absolute w-full bg-gray-200 h-1 z-0"></div>
+            <div id="progressBar" class="absolute bg-blue-500 h-1 z-0 w-0 transition-all duration-500"></div>
+            
+            <div id="step1Circle" class="z-10 w-6 h-6 rounded-full bg-blue-500 text-white text-[10px] flex items-center justify-center font-bold border-2 border-white">1</div>
+            <div id="step2Circle" class="z-10 w-6 h-6 rounded-full bg-gray-300 text-white text-[10px] flex items-center justify-center font-bold border-2 border-white">2</div>
+            <div id="step3Circle" class="z-10 w-6 h-6 rounded-full bg-gray-300 text-white text-[10px] flex items-center justify-center font-bold border-2 border-white">3</div>
+        </div>
+        <div class="flex justify-between max-w-xs mx-auto mt-1 text-[9px] text-gray-400 font-black uppercase">
+            <span>Room</span><span>GPS</span><span>Verify</span>
+        </div>
+    </div>
+
+    <div class="flex-grow flex flex-col justify-between p-4 pb-6">
+        
+        <div class="space-y-1">
+            <label class="text-[10px] font-bold text-blue-600 uppercase ml-1">Step 1: Select Classroom</label>
+            <select id="classroomSelect" onchange="unlockGPS()" class="w-full p-3 bg-white border-2 border-blue-100 rounded-xl text-sm font-bold text-gray-700 outline-none">
+                <option value="">-- Click to Select --</option>
+            </select>
+        </div>
+
+        <div class="space-y-2">
+            <button id="gpsBtn" onclick="fetchLocation()" class="w-full bg-blue-100 text-blue-400 font-black py-4 rounded-2xl flex items-center justify-center space-x-2 border-2 border-dashed border-blue-200">
+                <i class="fas fa-location-arrow"></i>
+                <span id="gpsBtnText">FETCH CURRENT LOCATION</span>
+            </button>
+            <button onclick="applyMockStudentGPS()" class="w-full text-[9px] text-gray-400 font-bold uppercase italic tracking-widest">
+                (Demo Mode: Use Center Coordinates)
+            </button>
+        </div>
+
+        <div id="cameraArea" class="hidden flex flex-col items-center space-y-3">
+            <div class="relative aspect-square w-48 overflow-hidden rounded-2xl shadow-xl border-4 border-white">
+                <video id="video" autoplay muted playsinline></video>
+                <img id="capturedImage" src="" alt="Captured">
+                <canvas id="canvas" class="hidden"></canvas>
+            </div>
+            <button id="captureBtn" onclick="handleCapture()" class="bg-orange-500 text-white text-xs font-bold px-6 py-2 rounded-full shadow-md active:scale-95 transition-all">
+                <i class="fas fa-camera mr-2"></i> CAPTURE SELFIE
+            </button>
+        </div>
+
+        <div class="space-y-3">
+            <div id="statusBox" class="text-center text-[11px] font-bold p-3 rounded-xl hidden"></div>
+            
+            <button id="markBtn" onclick="markAttendance()" class="w-full bg-gray-200 text-gray-400 font-black py-5 rounded-2xl shadow-inner flex flex-col items-center pointer-events-none">
+                <span class="text-xs uppercase tracking-widest">Mark Attendance</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let lat = 0, lon = 0;
+        let photoBlob = null;
+        let isCaptured = false;
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const capturedImage = document.getElementById('capturedImage');
+        const captureBtn = document.getElementById('captureBtn');
+        
+        // --- STUDENT ID SET TO STU002 ---
+        let studentId = 'STU001'; 
+
+        window.onload = () => {
+            document.getElementById('userNameDisp').innerText = `ID: ${studentId}`;
+            loadClassrooms();
+        };
+
+        function applyMockStudentGPS() {
+            lat = 16.712850; 
+            lon = 74.448260; 
+            
+            const btn = document.getElementById('gpsBtn');
+            const btnText = document.getElementById('gpsBtnText');
+            
+            btn.className = "w-full bg-green-600 text-white font-black py-4 rounded-2xl shadow-md flex items-center justify-center space-x-2";
+            btnText.innerText = "MOCK LOCATION APPLIED! ✅";
+            
+            document.getElementById('progressBar').style.width = '66%';
+            document.getElementById('step2Circle').classList.replace('bg-gray-300', 'bg-blue-500');
+            unlockCamera();
+        }
+
+        function unlockGPS() {
+            if (document.getElementById('classroomSelect').value !== "") {
+                const btn = document.getElementById('gpsBtn');
+                btn.className = "w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg flex items-center justify-center space-x-2 animate-pulse";
+                document.getElementById('progressBar').style.width = '33%';
+            }
+        }
+
+        function fetchLocation() {
+            const btnText = document.getElementById('gpsBtnText');
+            btnText.innerText = "FETCHING GPS...";
+            
+            navigator.geolocation.getCurrentPosition(pos => {
+                lat = pos.coords.latitude;
+                lon = pos.coords.longitude;
+                const btn = document.getElementById('gpsBtn');
+                btn.className = "w-full bg-green-600 text-white font-black py-4 rounded-2xl shadow-md flex items-center justify-center space-x-2";
+                btnText.innerText = "LOCATION FETCHED! ✅";
+                
+                document.getElementById('progressBar').style.width = '66%';
+                document.getElementById('step2Circle').classList.replace('bg-gray-300', 'bg-blue-500');
+                unlockCamera();
+            }, err => alert("GPS Error: Use Mock button if indoors"), {enableHighAccuracy: true, maximumAge: 0});
+        }
+
+        async function unlockCamera() {
+            document.getElementById('cameraArea').classList.remove('hidden');
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+            video.srcObject = stream;
+        }
+
+        async function handleCapture() {
+            if (!isCaptured) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                
+                const dataUrl = canvas.toDataURL('image/jpeg');
+                capturedImage.src = dataUrl;
+                capturedImage.style.display = 'block';
+                video.style.display = 'none';
+                
+                photoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.8));
+                isCaptured = true;
+                captureBtn.innerHTML = '<i class="fas fa-undo mr-2"></i> RE-CAPTURE';
+                captureBtn.classList.replace('bg-orange-500', 'bg-gray-500');
+
+                const markBtn = document.getElementById('markBtn');
+                markBtn.className = "w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-xl flex flex-col items-center active:scale-95 pointer-events-auto transition-all";
+                document.getElementById('progressBar').style.width = '100%';
+                document.getElementById('step3Circle').classList.replace('bg-gray-300', 'bg-blue-500');
+            } else {
+                isCaptured = false;
+                capturedImage.style.display = 'none';
+                video.style.display = 'block';
+                captureBtn.innerHTML = '<i class="fas fa-camera mr-2"></i> CAPTURE SELFIE';
+                captureBtn.classList.replace('bg-gray-500', 'bg-orange-500');
+                
+                const markBtn = document.getElementById('markBtn');
+                markBtn.className = "w-full bg-gray-200 text-gray-400 font-black py-5 rounded-2xl shadow-inner flex flex-col items-center pointer-events-none";
+            }
+        }
+
+        async function markAttendance() {
+            const statusBox = document.getElementById('statusBox');
+            const roomVal = document.getElementById('classroomSelect').value;
+
+            // --- 422 ERROR PREVENTION: CHECK IF ROOM IS SELECTED ---
+            if (!roomVal) return alert("Please select a classroom first!");
+            if (!photoBlob) return alert("Please capture selfie first!");
+
+            const formData = new FormData();
+            formData.append('student_id', studentId); 
+            
+            // --- FIX FOR 422: ENSURE ID IS SENT ---
+            formData.append('classroom_id', roomVal); 
+            
+            formData.append('latitude', lat);
+            formData.append('longitude', lon);
+            formData.append('file', photoBlob, 'selfie.jpg');
+
+            statusBox.className = "text-center text-[11px] font-bold p-3 rounded-xl block bg-blue-100 text-blue-700 animate-pulse";
+            statusBox.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Verifying...';
+
+            try {
+                const res = await fetch('http://127.0.0.1:8000/student/mark-attendance', { method: 'POST', body: formData });
+                
+                if (res.status === 422) {
+                    statusBox.className = "text-center text-[12px] font-black p-3 rounded-xl block bg-red-500 text-white shadow-lg";
+                    statusBox.innerText = "FAILED: DATA TYPE ERROR (422)";
+                    return;
+                }
+
+                const data = await res.json();
+                
+                if (data.attendance === "Marked") {
+                    statusBox.className = "text-center text-[12px] font-black p-3 rounded-xl block bg-green-500 text-white shadow-lg";
+                    statusBox.innerHTML = `SUCCESS: ${data.status.toUpperCase()}!`;
+                } else {
+                    statusBox.className = "text-center text-[12px] font-black p-3 rounded-xl block bg-red-500 text-white shadow-lg";
+                    statusBox.innerText = `FAILED: ${data.reason.toUpperCase()}`;
+                }
+            } catch (e) { 
+                statusBox.innerText = "SERVER ERROR!"; 
+            }
+        }
+
+        async function loadClassrooms() {
+            try {
+                const res = await fetch('http://127.0.0.1:8000/student/get-classrooms');
+                const rooms = await res.json();
+                const select = document.getElementById('classroomSelect');
+                select.innerHTML = '<option value="">-- Select Class --</option>' + 
+                    rooms.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+            } catch (e) { console.error("API Offline"); }
+        }
+
+        function logout() { localStorage.clear(); window.location.href = 'login.html'; }
+    </script>
+</body>
+</html>

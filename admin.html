@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Admin Dashboard - Boom Attendance</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { overflow: hidden; touch-action: manipulation; }
+        .scroll-section { height: calc(100vh - 480px); overflow-y: auto; }
+        .corner-btn { font-size: 10px; font-weight: 800; padding: 12px 4px; border-radius: 12px; transition: all 0.3s; }
+        .corner-active { background-color: #10b981 !important; color: white !important; border-color: #059669 !important; }
+        .tagging-pulse { animation: pulse 1.5s infinite; background-color: #fef3c7 !important; color: #d97706 !important; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-gray-50 h-screen flex flex-col font-sans">
+
+    <nav class="bg-indigo-700 p-3 text-white shadow-md flex justify-between items-center">
+        <span class="font-bold text-xs uppercase tracking-tighter">Command Center (6-Decimal Mode)</span>
+        <button onclick="logout()" class="text-[10px] font-black bg-indigo-800 px-3 py-1 rounded">LOGOUT</button>
+    </nav>
+
+    <div class="flex-grow flex flex-col p-4 space-y-4">
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-indigo-100 space-y-3">
+            <h2 class="text-[11px] font-black text-indigo-700 uppercase tracking-widest text-center">Setup High-Precision Area</h2>
+            
+            <div class="grid grid-cols-2 gap-2 mb-2">
+                <button onclick="applyMockData()" class="text-[9px] bg-green-100 text-green-700 font-bold p-2 rounded-lg border border-green-200 uppercase">📍 Mock Data</button>
+                <button onclick="clearGPSCache()" class="text-[9px] bg-red-100 text-red-700 font-bold p-2 rounded-lg border border-red-200 uppercase">🧹 Reset GPS</button>
+            </div>
+
+            <input type="text" id="roomName" placeholder="Classroom Name" class="w-full p-3 bg-indigo-50 border-2 border-indigo-100 rounded-xl text-sm font-bold outline-none text-center">
+            
+            <div class="grid grid-cols-2 gap-2">
+                <button onclick="tagLocation(1)" id="c1" class="corner-btn border-2 border-dashed border-indigo-200 bg-white text-indigo-400">1ST CORNER <br><span id="c1_data" class="text-[8px] font-normal italic">Wait 5s, then Tag</span></button>
+                <button onclick="tagLocation(2)" id="c2" class="corner-btn border-2 border-dashed border-indigo-200 bg-white text-indigo-400">2ND CORNER <br><span id="c2_data" class="text-[8px] font-normal italic">Wait 5s, then Tag</span></button>
+                <button onclick="tagLocation(3)" id="c3" class="corner-btn border-2 border-dashed border-indigo-200 bg-white text-indigo-400">3RD CORNER <br><span id="c3_data" class="text-[8px] font-normal italic">Wait 5s, then Tag</span></button>
+                <button onclick="tagLocation(4)" id="c4" class="corner-btn border-2 border-dashed border-indigo-200 bg-white text-indigo-400">4TH CORNER <br><span id="c4_data" class="text-[8px] font-normal italic">Wait 5s, then Tag</span></button>
+            </div>
+
+            <button onclick="saveBoundary()" class="w-full bg-indigo-600 text-white font-black py-4 rounded-xl shadow-lg active:scale-95 text-xs">
+                SAVE CLASSROOM BOUNDARY
+            </button>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-green-100 flex flex-col flex-grow overflow-hidden">
+            <div class="p-3 bg-green-50 border-b flex flex-col space-y-2">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-[10px] font-black text-green-700 uppercase">Live Attendance Logs</h2>
+                    <span id="countBadge" class="hidden bg-green-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">0 PRESENT</span>
+                </div>
+                <div class="flex space-x-2">
+                    <select id="roomFilterSelect" class="flex-grow p-2 bg-white border rounded-lg text-xs font-bold outline-none">
+                        <option value="">-- Select Classroom --</option>
+                    </select>
+                    <button onclick="fetchLogs()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-black hover:bg-green-700 transition-colors">GET</button>
+                </div>
+            </div>
+            
+            <div class="scroll-section">
+                <table class="w-full text-left">
+                    <thead class="bg-gray-50 sticky top-0 text-[9px] text-gray-400 uppercase">
+                        <tr>
+                            <th class="p-3">Student</th>
+                            <th class="p-3">Status</th>
+                            <th class="p-3 text-right">Date & Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logsTable" class="text-[11px] font-bold text-gray-700"></tbody>
+                </table>
+                <div id="noData" class="p-10 text-center text-gray-300 text-xs italic">Select room to see logs.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let corners = { 1: null, 2: null, 3: null, 4: null };
+
+        window.onload = () => { loadClassrooms(); };
+
+        function applyMockData() {
+            document.getElementById('roomName').value = "Mentor_Demo_Room";
+            const mock = [
+                { lat: 16.712851, lon: 74.448259 },
+                { lat: 16.712850, lon: 74.448262 },
+                { lat: 16.712850, lon: 74.448261 },
+                { lat: 16.712849, lon: 74.448259 }
+            ];
+
+            for(let i=1; i<=4; i++) {
+                corners[i] = mock[i-1];
+                const btn = document.getElementById(`c${i}`);
+                const dataSpan = document.getElementById(`c${i}_data`);
+                btn.classList.add('corner-active');
+                dataSpan.innerText = mock[i-1].lat.toFixed(6);
+            }
+            alert("✅ Mock Demo Data Loaded!");
+        }
+
+        function clearGPSCache() {
+            navigator.geolocation.getCurrentPosition(() => {
+                alert("🧹 GPS Cache Flushed. Fresh signal requested.");
+            }, null, { enableHighAccuracy: true, maximumAge: 0 });
+        }
+
+        function tagLocation(cornerNum) {
+            const btn = document.getElementById(`c${cornerNum}`);
+            const dataSpan = document.getElementById(`c${cornerNum}_data`);
+            btn.classList.add('tagging-pulse');
+            dataSpan.innerText = "Sensing Accuracy...";
+
+            const options = { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 };
+
+            navigator.geolocation.getCurrentPosition(pos => {
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+                corners[cornerNum] = { lat, lon };
+                btn.classList.remove('tagging-pulse');
+                btn.classList.add('corner-active');
+                dataSpan.innerText = `${lat.toFixed(6)}`; 
+            }, err => {
+                btn.classList.remove('tagging-pulse');
+                dataSpan.innerText = "Signal Weak ❌";
+                alert("GPS Error: " + err.message);
+            }, options);
+        }
+
+        async function saveBoundary() {
+            const name = document.getElementById('roomName').value;
+            if(!name || !corners[1] || !corners[2] || !corners[3] || !corners[4]) return alert("Tag all 4 corners first!");
+
+            const lats = [corners[1].lat, corners[2].lat, corners[3].lat, corners[4].lat];
+            const lons = [corners[1].lon, corners[2].lon, corners[3].lon, corners[4].lon];
+            
+            try {
+                const res = await fetch(`http://127.0.0.1:8000/teacher/add-classroom?name=${encodeURIComponent(name)}&min_lat=${Math.min(...lats)}&max_lat=${Math.max(...lats)}&min_lon=${Math.min(...lons)}&max_lon=${Math.max(...lons)}`, { method: 'POST' });
+                alert("Boom! High-Precision Room Saved!");
+                location.reload();
+            } catch (e) { alert("Server Error!"); }
+        }
+
+        async function loadClassrooms() {
+            try {
+                const res = await fetch('http://127.0.0.1:8000/student/get-classrooms');
+                const rooms = await res.json();
+                document.getElementById('roomFilterSelect').innerHTML = '<option value="">-- Select Classroom --</option>' + 
+                    rooms.map(r => `<option value="${r.name}">${r.name}</option>`).join('');
+            } catch (e) { console.error("API Offline"); }
+        }
+
+        async function fetchLogs() {
+            const roomName = document.getElementById('roomFilterSelect').value;
+            if(!roomName) return alert("Select a classroom first!");
+
+            try {
+                const res = await fetch(`http://127.0.0.1:8000/teacher/view-attendance/${roomName}`);
+                const logs = await res.json();
+                const table = document.getElementById('logsTable');
+                const noData = document.getElementById('noData');
+                const badge = document.getElementById('countBadge');
+
+                table.innerHTML = "";
+                if(!logs || logs.length === 0) {
+                    noData.classList.remove('hidden');
+                    badge.classList.add('hidden');
+                    return;
+                }
+                noData.classList.add('hidden');
+                badge.classList.remove('hidden');
+                badge.innerText = `${logs.length} PRESENT`;
+
+                logs.forEach(log => {
+                    // This creates a nice Date and Time string (e.g., Jan 13, 05:32 PM)
+                    const dateObj = new Date(log.timestamp);
+                    const dateStr = dateObj.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                    const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    
+                    table.innerHTML += `
+                        <tr class="border-b border-gray-50 hover:bg-green-50 transition-colors">
+                            <td class="p-3 text-indigo-600 font-black uppercase tracking-tighter">${log.student_id}</td>
+                            <td class="p-3"><span class="px-2 py-0.5 rounded-full text-[8px] font-bold ${log.status === 'Enrolled' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}">${log.status.toUpperCase()}</span></td>
+                            <td class="p-3 text-right text-gray-500 font-medium text-[9px]">${dateStr} | ${timeStr}</td>
+                        </tr>`;
+                });
+            } catch (e) { alert("Error fetching logs!"); }
+        }
+
+        function logout() { localStorage.clear(); window.location.href = 'login.html'; }
+    </script>
+</body>
+</html>

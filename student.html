@@ -18,7 +18,7 @@
     <nav class="bg-blue-600 p-3 text-white shadow-md flex justify-between items-center">
         <span class="font-bold text-sm uppercase tracking-wider">Student Panel</span>
         <div class="flex items-center space-x-3">
-            <span id="userNameDisp" class="text-[9px] bg-blue-700 px-2 py-1 rounded">ID: STU001</span>
+            <span id="userNameDisp" class="text-[9px] bg-blue-700 px-2 py-1 rounded tracking-tighter font-black uppercase">ID: LOADING...</span>
             <button onclick="logout()" class="text-[10px] text-white hover:text-red-200 font-bold border-l border-blue-400 pl-3">
                 <i class="fas fa-sign-out-alt"></i> LOGOUT
             </button>
@@ -34,16 +34,15 @@
             <div id="step2Circle" class="z-10 w-6 h-6 rounded-full bg-gray-300 text-white text-[10px] flex items-center justify-center font-bold border-2 border-white">2</div>
             <div id="step3Circle" class="z-10 w-6 h-6 rounded-full bg-gray-300 text-white text-[10px] flex items-center justify-center font-bold border-2 border-white">3</div>
         </div>
-        <div class="flex justify-between max-w-xs mx-auto mt-1 text-[9px] text-gray-400 font-black uppercase">
+        <div class="flex justify-between max-w-xs mx-auto mt-1 text-[9px] text-gray-400 font-black uppercase tracking-widest">
             <span>Room</span><span>GPS</span><span>Verify</span>
         </div>
     </div>
 
     <div class="flex-grow flex flex-col justify-between p-4 pb-6">
-        
         <div class="space-y-1">
             <label class="text-[10px] font-bold text-blue-600 uppercase ml-1">Step 1: Select Classroom</label>
-            <select id="classroomSelect" onchange="unlockGPS()" class="w-full p-3 bg-white border-2 border-blue-100 rounded-xl text-sm font-bold text-gray-700 outline-none">
+            <select id="classroomSelect" onchange="unlockGPS()" class="w-full p-3 bg-white border-2 border-blue-100 rounded-xl text-sm font-bold text-gray-700 outline-none shadow-sm focus:border-blue-400 transition-colors">
                 <option value="">-- Click to Select --</option>
             </select>
         </div>
@@ -53,7 +52,7 @@
                 <i class="fas fa-location-arrow"></i>
                 <span id="gpsBtnText">FETCH CURRENT LOCATION</span>
             </button>
-            <button onclick="applyMockStudentGPS()" class="w-full text-[9px] text-gray-400 font-bold uppercase italic tracking-widest">
+            <button onclick="applyMockStudentGPS()" class="w-full text-[9px] text-gray-400 font-bold uppercase italic tracking-widest hover:text-blue-500">
                 (Demo Mode: Use Center Coordinates)
             </button>
         </div>
@@ -71,14 +70,22 @@
 
         <div class="space-y-3">
             <div id="statusBox" class="text-center text-[11px] font-bold p-3 rounded-xl hidden"></div>
-            
-            <button id="markBtn" onclick="markAttendance()" class="w-full bg-gray-200 text-gray-400 font-black py-5 rounded-2xl shadow-inner flex flex-col items-center pointer-events-none">
+            <button id="markBtn" onclick="markAttendance()" class="w-full bg-gray-200 text-gray-400 font-black py-5 rounded-2xl shadow-inner flex flex-col items-center pointer-events-none transition-all">
                 <span class="text-xs uppercase tracking-widest">Mark Attendance</span>
             </button>
         </div>
     </div>
 
     <script>
+        // --- AUTHENTICATION & SESSION CHECK ---
+        let studentId = localStorage.getItem('userId');
+        
+        // If someone tries to access without logging in, redirect to index
+        if (!studentId) {
+            alert("No session found. Please login.");
+            window.location.href = "/login"; 
+        }
+
         let lat = 0, lon = 0;
         let photoBlob = null;
         let isCaptured = false;
@@ -86,9 +93,6 @@
         const canvas = document.getElementById('canvas');
         const capturedImage = document.getElementById('capturedImage');
         const captureBtn = document.getElementById('captureBtn');
-        
-        // --- STUDENT ID SET TO STU002 ---
-        let studentId = 'STU001'; 
 
         window.onload = () => {
             document.getElementById('userNameDisp').innerText = `ID: ${studentId}`;
@@ -137,8 +141,10 @@
 
         async function unlockCamera() {
             document.getElementById('cameraArea').classList.remove('hidden');
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-            video.srcObject = stream;
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                video.srcObject = stream;
+            } catch (e) { alert("Camera access denied!"); }
         }
 
         async function handleCapture() {
@@ -170,6 +176,8 @@
                 
                 const markBtn = document.getElementById('markBtn');
                 markBtn.className = "w-full bg-gray-200 text-gray-400 font-black py-5 rounded-2xl shadow-inner flex flex-col items-center pointer-events-none";
+                document.getElementById('progressBar').style.width = '66%';
+                document.getElementById('step3Circle').classList.replace('bg-blue-500', 'bg-gray-300');
             }
         }
 
@@ -177,43 +185,35 @@
             const statusBox = document.getElementById('statusBox');
             const roomVal = document.getElementById('classroomSelect').value;
 
-            // --- 422 ERROR PREVENTION: CHECK IF ROOM IS SELECTED ---
             if (!roomVal) return alert("Please select a classroom first!");
             if (!photoBlob) return alert("Please capture selfie first!");
 
             const formData = new FormData();
-            formData.append('student_id', studentId); 
-            
-            // --- FIX FOR 422: ENSURE ID IS SENT ---
+            formData.append('student_id', studentId); // Dynamic ID from Login
             formData.append('classroom_id', roomVal); 
-            
             formData.append('latitude', lat);
             formData.append('longitude', lon);
             formData.append('file', photoBlob, 'selfie.jpg');
 
             statusBox.className = "text-center text-[11px] font-bold p-3 rounded-xl block bg-blue-100 text-blue-700 animate-pulse";
-            statusBox.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Verifying...';
+            statusBox.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Verifying Face & GPS...';
+            statusBox.classList.remove('hidden');
 
             try {
+                // Pointing to absolute URL for network reliability
                 const res = await fetch('http://127.0.0.1:8000/student/mark-attendance', { method: 'POST', body: formData });
-                
-                if (res.status === 422) {
-                    statusBox.className = "text-center text-[12px] font-black p-3 rounded-xl block bg-red-500 text-white shadow-lg";
-                    statusBox.innerText = "FAILED: DATA TYPE ERROR (422)";
-                    return;
-                }
-
                 const data = await res.json();
                 
                 if (data.attendance === "Marked") {
                     statusBox.className = "text-center text-[12px] font-black p-3 rounded-xl block bg-green-500 text-white shadow-lg";
-                    statusBox.innerHTML = `SUCCESS: ${data.status.toUpperCase()}!`;
+                    statusBox.innerHTML = `<i class="fas fa-check-circle mr-2"></i> ${data.status.toUpperCase()}!`;
                 } else {
                     statusBox.className = "text-center text-[12px] font-black p-3 rounded-xl block bg-red-500 text-white shadow-lg";
                     statusBox.innerText = `FAILED: ${data.reason.toUpperCase()}`;
                 }
             } catch (e) { 
-                statusBox.innerText = "SERVER ERROR!"; 
+                statusBox.className = "text-center text-[12px] font-black p-3 rounded-xl block bg-red-600 text-white shadow-lg";
+                statusBox.innerText = "SERVER ERROR! Check connection."; 
             }
         }
 
@@ -222,12 +222,15 @@
                 const res = await fetch('http://127.0.0.1:8000/student/get-classrooms');
                 const rooms = await res.json();
                 const select = document.getElementById('classroomSelect');
-                select.innerHTML = '<option value="">-- Select Class --</option>' + 
+                select.innerHTML = '<option value="">-- Click to Select --</option>' + 
                     rooms.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
             } catch (e) { console.error("API Offline"); }
         }
 
-        function logout() { localStorage.clear(); window.location.href = 'login.html'; }
+        function logout() { 
+            localStorage.clear(); 
+            window.location.href = '/login'; 
+        }
     </script>
 </body>
 </html>

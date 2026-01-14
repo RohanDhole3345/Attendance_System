@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Attendance Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(rgba(0, 0, 50, 0.75), rgba(0, 0, 50, 0.75)), 
+                        url('https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&q=80&w=1600');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            overflow: hidden;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            max-height: 95vh;
+        }
+        input::placeholder { font-weight: normal; opacity: 0.6; }
+    </style>
+</head>
+<body class="h-screen flex items-center justify-center p-4">
+    <div class="max-w-lg w-full glass rounded-[2.5rem] shadow-2xl p-8 md:p-10 space-y-6 animate-page">
+        
+        <div class="text-center space-y-2">
+            <h1 class="text-2xl font-black text-gray-800 uppercase leading-tight">
+                AI Attendance System <br>
+                <span class="text-blue-600 text-sm">Face Verification & Geofencing</span>
+            </h1>
+        </div>
+
+        <div class="flex bg-gray-100 p-1 rounded-2xl">
+            <button id="studentTab" onclick="switchTab('student')" class="flex-1 py-3 rounded-xl font-black text-[10px] bg-white shadow-sm text-blue-600 transition-all">STUDENT</button>
+            <button id="teacherTab" onclick="switchTab('teacher')" class="flex-1 py-3 rounded-xl font-black text-[10px] text-gray-400 transition-all">TEACHER</button>
+        </div>
+
+        <form id="loginForm" class="space-y-4">
+            <div>
+                <label id="idLabel" class="text-[9px] font-black text-blue-500 uppercase ml-2 block">Student ID</label>
+                <input type="text" id="uid" required placeholder="Enter ID..." class="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-bold text-sm">
+            </div>
+            <div>
+                <label class="text-[9px] font-black text-blue-500 uppercase ml-2 block">Password</label>
+                <input type="password" id="pwd" required placeholder="••••••••" class="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-bold text-sm">
+            </div>
+            <button type="submit" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all uppercase text-xs tracking-widest">Login</button>
+            
+            <div class="flex flex-col space-y-3 pt-2">
+                <button type="button" onclick="showForgotArea()" class="text-[10px] text-gray-400 font-black uppercase hover:text-blue-600 transition-colors">Forgot Password?</button>
+                <button type="button" id="regBtn" onclick="showRegisterArea()" class="hidden text-[10px] text-blue-600 font-black uppercase border border-blue-100 p-2 rounded-lg bg-blue-50">Register as New Admin</button>
+            </div>
+        </form>
+
+        <div id="actionArea" class="hidden space-y-4">
+            <div class="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                <p id="actionHint" class="text-[9px] text-blue-800 font-black text-center uppercase tracking-tighter"></p>
+            </div>
+            
+            <div class="space-y-3">
+                <input type="text" id="actionUser" placeholder="Username / ID" class="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold text-sm outline-none focus:border-blue-500">
+                
+                <div id="teacherExtraFields" class="hidden space-y-3">
+                    <label id="keyLabel" class="text-[9px] font-black text-orange-500 uppercase ml-2 block">Verification Key</label>
+                    <input type="password" id="actionKey" placeholder="Enter Key..." class="w-full p-4 bg-orange-50 border-2 border-orange-100 rounded-2xl font-bold text-sm outline-none focus:border-orange-500">
+                    
+                    <label class="text-[9px] font-black text-blue-500 uppercase ml-2 block">Set Password</label>
+                    <input type="password" id="actionNewPwd" placeholder="Enter New Password" class="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold text-sm outline-none focus:border-blue-500">
+                </div>
+            </div>
+
+            <button id="mainActionBtn" onclick="handleAction()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg uppercase text-xs tracking-widest active:scale-95">Confirm</button>
+            <button onclick="hideActionArea()" class="w-full text-[10px] text-gray-400 font-black uppercase">Back to Login</button>
+        </div>
+    </div>
+
+    <script>
+        let currentRole = 'student';
+        let currentMode = 'login'; 
+
+        function switchTab(role) {
+            currentRole = role;
+            document.getElementById('studentTab').className = role === 'student' ? "flex-1 py-3 rounded-xl font-black text-[10px] bg-white shadow-sm text-blue-600" : "flex-1 py-3 rounded-xl font-black text-[10px] text-gray-400";
+            document.getElementById('teacherTab').className = role === 'teacher' ? "flex-1 py-3 rounded-xl font-black text-[10px] bg-white shadow-sm text-blue-600" : "flex-1 py-3 rounded-xl font-black text-[10px] text-gray-400";
+            document.getElementById('idLabel').innerText = role === 'student' ? "Student ID" : "Teacher Username";
+            
+            // Show Register button only for Teacher role
+            document.getElementById('regBtn').classList.toggle('hidden', role === 'student');
+            hideActionArea();
+        }
+
+        function showForgotArea() {
+            currentMode = 'forgot';
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('actionArea').classList.remove('hidden');
+            
+            if(currentRole === 'student') {
+                document.getElementById('teacherExtraFields').classList.add('hidden');
+                document.getElementById('actionHint').innerText = "Student Recovery: Password resets to Student ID";
+            } else {
+                document.getElementById('teacherExtraFields').classList.remove('hidden');
+                document.getElementById('keyLabel').innerText = "Secret Key Required";
+                document.getElementById('actionKey').placeholder = "Enter Secret Key";
+                document.getElementById('actionHint').innerText = "Teacher Recovery: Verify Secret Key";
+            }
+            document.getElementById('mainActionBtn').innerText = "Reset Password";
+        }
+
+        function showRegisterArea() {
+            currentMode = 'register';
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('actionArea').classList.remove('hidden');
+            document.getElementById('teacherExtraFields').classList.remove('hidden');
+            
+            document.getElementById('keyLabel').innerText = "Master Key Required";
+            document.getElementById('actionKey').placeholder = "Enter Master Key";
+            document.getElementById('actionHint').innerText = "Admin Registration: Verify Master Key";
+            document.getElementById('mainActionBtn').innerText = "Register Admin";
+        }
+
+        function hideActionArea() {
+            document.getElementById('loginForm').classList.remove('hidden');
+            document.getElementById('actionArea').classList.add('hidden');
+            document.getElementById('actionUser').value = "";
+            document.getElementById('actionKey').value = "";
+            document.getElementById('actionNewPwd').value = "";
+        }
+
+        document.getElementById('loginForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            const endpoint = currentRole === 'student' ? '/login/student' : '/login/teacher';
+            formData.append(currentRole === 'student' ? 'student_id' : 'username', document.getElementById('uid').value);
+            formData.append('password', document.getElementById('pwd').value);
+
+            try {
+                const res = await fetch(`http://127.0.0.1:8000${endpoint}`, { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.message === "Success") {
+                    localStorage.setItem('userId', document.getElementById('uid').value);
+                    window.location.href = currentRole === 'student' ? '/student' : '/admin';
+                } else { alert("Invalid Credentials"); }
+            } catch (e) { alert("Server Error"); }
+        };
+
+        async function handleAction() {
+            const formData = new FormData();
+            let url = "";
+
+            if (currentMode === 'forgot') {
+                url = currentRole === 'student' ? '/student/forgot-password' : '/teacher/forgot-password';
+                formData.append(currentRole === 'student' ? 'student_id' : 'username', document.getElementById('actionUser').value);
+                if(currentRole === 'teacher') {
+                    formData.append('secret_key', document.getElementById('actionKey').value);
+                    formData.append('new_password', document.getElementById('actionNewPwd').value);
+                }
+            } else {
+                url = '/teacher/register';
+                formData.append('username', document.getElementById('actionUser').value);
+                formData.append('password', document.getElementById('actionNewPwd').value);
+                formData.append('master_key', document.getElementById('actionKey').value);
+            }
+
+            try {
+                const res = await fetch(`http://127.0.0.1:8000${url}`, { method: 'POST', body: formData });
+                const data = await res.json();
+                if (res.ok) {
+                    alert("Operation Successful!");
+                    location.reload();
+                } else { 
+                    alert("Failed: " + (data.detail || "Check your Keys/ID")); 
+                }
+            } catch (e) { alert("Server Connection Error"); }
+        }
+    </script>
+</body>
+</html>

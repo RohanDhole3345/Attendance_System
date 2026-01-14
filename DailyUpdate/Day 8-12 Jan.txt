@@ -5,7 +5,7 @@ Tasks Completed:
 - Distance check
 - Logic Of Mark Attendance Once per Hour Only 
 - Everthing Working Properly
-- Admin Panel is created newly 
+- Admin Panel is created newly  
 - Admin can able to view the attdeance
 - Security Functions Added like Master Key and forget passward Key
 - Added Forget passward option for both student and admin also

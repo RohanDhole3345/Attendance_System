@@ -5,7 +5,6 @@ from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from deepface import DeepFace
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 # Import your database objects
@@ -22,6 +21,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# >>---------- PAGE ROUTING ----------<<
+
+@app.get("/")
+@app.get("/login")
+@app.get("/login.html")
+def get_login():
+    return FileResponse("login.html")
 
 @app.get("/admin")
 def get_admin_page():
@@ -47,8 +54,22 @@ def throw_auth_error():
 @app.post("/login/student")
 def login_student(student_id: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
     user = db.query(Student).filter(Student.id == student_id).first()
-    if not user or user.password != password:
+    
+    # Auto-Enroll Logic: If student doesn't exist, create them
+    if not user:
+        new_student = Student(
+            id=student_id, 
+            name=student_id, 
+            password=password, 
+            reference_image_path=f"uploads/references/{student_id}.jpg"
+        )
+        db.add(new_student)
+        db.commit()
+        return {"message": "Success", "role": "student", "name": student_id, "status": "New Student Created"}
+    
+    if user.password != password:
         throw_auth_error()
+        
     return {"message": "Success", "role": "student", "name": user.name}
 
 @app.post("/login/teacher")
@@ -65,8 +86,8 @@ def register_teacher(
     master_key: str = Form(...), 
     db: Session = Depends(get_db)
 ):
-    IF_MASTER_KEY_RIGHT = "SECRET_CODE_2026" 
-    if master_key != IF_MASTER_KEY_RIGHT:
+    # As per your requirement: "Reset123" or "R2026"
+    if master_key not in ["R2026", "Reset123"]:
         raise HTTPException(status_code=403, detail="Unauthorized: Invalid Master Key")
 
     if db.query(Admin).filter(Admin.username == username).first():
@@ -77,24 +98,38 @@ def register_teacher(
     db.commit()
     return {"message": "Admin registered successfully"}
 
+# >>---------- FORGOT PASSWORD LOGIC ----------<<
+
+@app.post("/student/forgot-password")
+def student_forgot_password(student_id: str = Form(...), db: Session = Depends(get_db)):
+    user = db.query(Student).filter(Student.id == student_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Student ID not found")
+    user.password = student_id 
+    db.commit()
+    return {"message": "Success", "new_password": student_id}
+
+@app.post("/teacher/forgot-password")
+def teacher_forgot_password(
+    username: str = Form(...), 
+    secret_key: str = Form(...), 
+    new_password: str = Form(...), 
+    db: Session = Depends(get_db)
+):
+    if secret_key != "Reset123":
+        raise HTTPException(status_code=403, detail="Invalid Secret Key")
+    admin = db.query(Admin).filter(Admin.username == username).first()
+    if not admin:
+        raise HTTPException(status_code=404, detail="Admin not found")
+    admin.password = new_password
+    db.commit()
+    return {"message": "Success"}
+
 # >>---------- TEACHER / ADMIN ENDPOINTS ----------<<
 
 @app.post("/teacher/add-classroom")
-def add_classroom(
-    name: str, 
-    min_lat: float, 
-    max_lat: float, 
-    min_lon: float, 
-    max_lon: float, 
-    db: Session = Depends(get_db)
-):
-    new_room = ClassroomSetting(
-        name=name, 
-        min_lat=min_lat, 
-        max_lat=max_lat, 
-        min_lon=min_lon, 
-        max_lon=max_lon
-    )
+def add_classroom(name: str, min_lat: float, max_lat: float, min_lon: float, max_lon: float, db: Session = Depends(get_db)):
+    new_room = ClassroomSetting(name=name, min_lat=min_lat, max_lat=max_lat, min_lon=min_lon, max_lon=max_lon)
     db.add(new_room)
     db.commit()
     return {"message": f"Classroom '{name}' created successfully!"}
@@ -102,24 +137,21 @@ def add_classroom(
 @app.get("/teacher/view-attendance/{room_name}")
 def view_attendance_by_room(room_name: str, db: Session = Depends(get_db)):
     logs = db.query(AttendanceLog).filter(AttendanceLog.classroom_name == room_name).all()
-    # Format the logs to include a nice Date/Time string
     formatted_logs = []
     for log in logs:
         formatted_logs.append({
             "student_id": log.student_id,
             "status": log.status,
             "classroom_name": log.classroom_name,
-            # This formats it as: Jan-13-2026 05:32 PM
             "timestamp": log.timestamp.strftime("%b-%d-%Y %I:%M %p") 
         })
     return formatted_logs
 
-# >>---------- STUDENT ENDPOINTS ----------<<
+# >>---------- STUDENT ATTENDANCE LOGIC ----------<<
 
 @app.get("/student/get-classrooms")
 def get_classrooms(db: Session = Depends(get_db)):
-    classrooms = db.query(ClassroomSetting).all()
-    return classrooms
+    return db.query(ClassroomSetting).all()
 
 @app.post("/student/mark-attendance")
 async def mark_attendance(
@@ -133,7 +165,7 @@ async def mark_attendance(
     rect = db.query(ClassroomSetting).filter(ClassroomSetting.id == classroom_id).first()
     if not rect: return {"attendance": "Error", "reason": "Classroom not found"}
 
-    # 1. SMART GEOFENCE FIX
+    # Geofence Validation
     actual_min_lat, actual_max_lat = sorted([rect.min_lat, rect.max_lat])
     actual_min_lon, actual_max_lon = sorted([rect.min_lon, rect.max_lon])
     BUFFER = 0.00005
@@ -141,7 +173,7 @@ async def mark_attendance(
             (actual_min_lon - BUFFER) <= longitude <= (actual_max_lon + BUFFER)):
         return {"attendance": "Rejected", "reason": f"Outside {rect.name} boundary"}
 
-    # 2. PERMANENT IST TIME FIX (UTC + 5:30)
+    # IST Time Handling
     ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
     time_threshold = ist_now - timedelta(hours=1)
     
@@ -156,17 +188,20 @@ async def mark_attendance(
     db_student = db.query(Student).filter(Student.id == student_id).first()
     ref_path = f"uploads/references/{student_id}.jpg"
 
-    # --- ENROLLMENT ---
+    # ENROLLMENT FIX (Save student first, then log)
     if not db_student:
         with open(ref_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+        
         new_student = Student(id=student_id, name=student_id, password=student_id, reference_image_path=ref_path)
         db.add(new_student)
+        db.commit() # Save student to satisfy Foreign Key
+        
         db.add(AttendanceLog(student_id=student_id, status="Enrolled", classroom_name=rect.name, timestamp=ist_now))
         db.commit()
         return {"attendance": "Marked", "status": "Enrolled"}
 
-    # --- AI FACE VERIFICATION ---
+    # AI FACE VERIFICATION
     else:
         temp_path = f"uploads/temp/{student_id}_temp.jpg"
         with open(temp_path, "wb") as buffer:

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from deepface import DeepFace
 from fastapi.responses import FileResponse
 
-# Import your database objects
+# Import your database objects 
 from database import SessionLocal, engine, Base, Student, AttendanceLog, ClassroomSetting, Admin, get_db
 
 # Initialize FastAPI

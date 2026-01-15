@@ -218,7 +218,7 @@
         }
 
         async function loadClassrooms() {
-            try {
+            try { 
                 const res = await fetch('http://127.0.0.1:8000/student/get-classrooms');
                 const rooms = await res.json();
                 const select = document.getElementById('classroomSelect');

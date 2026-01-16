@@ -20,7 +20,7 @@ Backend: FastAPI (Python)
 
 Database: MySQL (SQLAlchemy ORM)
 
-Face AI: DeepFace / OpenCV
+Face AI: DeepFace 
 
 Frontend: HTML5, Tailwind CSS, JavaScript (Fetch API)
 

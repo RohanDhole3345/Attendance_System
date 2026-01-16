@@ -1,10 +1,27 @@
-# Location Based Attendance System
+🚀 Smart Attendance System with AI & Geofencing-
 
-## Project Description
-The Location Based Attendance System is a web-based application designed to prevent proxy attendance.
-It allows attendance to be marked only when a user is physically present inside a predefined classroom location.
+-A high-precision attendance system that uses Face Recognition and GPS Geofencing to prevent proxy attendance. Designed for modern classrooms and built with a mobile-first approach.
 
-The system uses:
-- GPS-based location verification with Selfi Verification
-- Admin-controlled classroom boundary setup
-- Secure user and admin login system
+--------------------------------------------------------------------------------
+✨ Key Features
+-AI Face Verification: Powered by DeepFace to ensure the actual student is present.
+
+-GPS Geofencing: Students can only mark attendance if they are physically within the classroom boundaries (6-decimal precision).
+
+-Mobile-Friendly UI: Responsive panels for both Students and Admins built with Tailwind CSS.
+
+-Cloud Tunneling: Enabled via Cloudflare to allow real-time testing on physical Android devices.
+
+-Live Admin Dashboard: Real-time logs and attendance tracking.
+
+--------------------------------------------------------------------------------
+🛠️ Tech Stack
+Backend: FastAPI (Python)
+
+Database: MySQL (SQLAlchemy ORM)
+
+Face AI: DeepFace / OpenCV
+
+Frontend: HTML5, Tailwind CSS, JavaScript (Fetch API)
+
+Connectivity: Cloudflare Tunnel (Quick Tunnels)
